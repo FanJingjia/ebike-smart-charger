@@ -11,7 +11,7 @@ public final class Constants {
 
   public static final Integer PORT = 9090;
 
-  public static final String INET_ADDRESS="127.0.0.1";
+  public static final Integer HTTP_STATUS_OK = 200;
 
   private Constants() {
     // empty
