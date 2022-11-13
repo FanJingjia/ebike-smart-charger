@@ -5,15 +5,16 @@ import static com.thoughtworks.ebikecharger.Constants.HOUR_AS_MILLIS;
 
 import com.alibaba.fastjson.JSON;
 import java.io.IOException;
-import java.io.ObjectOutputStream;
-import java.io.OutputStream;
-import java.net.InetAddress;
-import java.net.Socket;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import org.apache.hc.client5.http.classic.methods.HttpPost;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
+import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.apache.hc.core5.http.io.entity.StringEntity;
 
 public class Charger implements Runnable {
 
@@ -46,28 +47,17 @@ public class Charger implements Runnable {
 
   @Override
   public void run() {
-    while (true) {
-      if (isPlugged()) {
-        synchronized (lock) {
-          try (Socket socket = new Socket(InetAddress.getByName(Constants.INET_ADDRESS), Constants.PORT)) {
-            try (OutputStream outputStream = socket.getOutputStream()) {
-              try (ObjectOutputStream objectOutputStream = new ObjectOutputStream(outputStream)) {
-                String energyKnostJson = JSON.toJSONString(generateEnergyKnots(System.currentTimeMillis(), pluggedInTime.get()));
-                RequestBody requestBody = RequestBody.post("/charger/energyKnots",energyKnostJson);
-                objectOutputStream.writeObject(requestBody);
-                objectOutputStream.flush();
-              }
-            } catch (IOException e) {
-              throw new RuntimeException(e);
-            }
-          } catch (IOException e) {
-            throw new RuntimeException(e);
-          }
-        }
-      }
-      try {
+    while(isPlugged.get()){
+      try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
+        HttpPost httpPost = new HttpPost("http://127.0.0.1:9090/charger/energyKnots");
+        List<Integer> energyKnots = generateEnergyKnots(System.currentTimeMillis(), pluggedInTime.get());
+        String energyKnotsJSON = JSON.toJSONString(energyKnots);
+        httpPost.setEntity(new StringEntity(energyKnotsJSON, StandardCharsets.UTF_8));
+        httpClient.execute(httpPost);
+        httpPost.clear();
         Thread.sleep(HOUR_AS_MILLIS);
-      } catch (InterruptedException ignore) {
+      } catch (IOException | InterruptedException e) {
+        throw new RuntimeException(e);
       }
     }
   }
@@ -86,38 +76,24 @@ public class Charger implements Runnable {
   }
 
   private void sendPlugInEvent() {
-    try (Socket socket = new Socket(InetAddress.getByName(Constants.INET_ADDRESS), Constants.PORT)) {
-      try (OutputStream outputStream = socket.getOutputStream()) {
-        try (ObjectOutputStream objectOutputStream = new ObjectOutputStream(outputStream)) {
-          System.out.println("[Charger日志][充电器]：检测到电源插入");
-
-          RequestBody requestBody = RequestBody.post("/charger/status", "plugIn");
-
-          objectOutputStream.writeObject(requestBody);
-          objectOutputStream.flush();
-        }
-      } catch (IOException e) {
-        throw new RuntimeException(e);
-      }
+    try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
+      System.out.println("[Charger日志][充电器]：检测到电源插入");
+      HttpPost httpPost = new HttpPost("http://127.0.0.1:9090/charger/status");
+      httpPost.setEntity(new StringEntity("plugIn", StandardCharsets.UTF_8));
+      httpClient.execute(httpPost);
+      httpPost.clear();
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
   }
 
   private void sendPlugOutEvent() {
-    try (Socket socket = new Socket(InetAddress.getByName(Constants.INET_ADDRESS), Constants.PORT)) {
-      try (OutputStream outputStream = socket.getOutputStream()) {
-        try (ObjectOutputStream objectOutputStream = new ObjectOutputStream(outputStream)) {
-          System.out.println("[Charger日志][充电器]：检测到电源拔出");
-
-          RequestBody requestBody = RequestBody.post("/charger/status", "plugOut");
-
-          objectOutputStream.writeObject(requestBody);
-          objectOutputStream.flush();
-        }
-      } catch (IOException e) {
-        throw new RuntimeException(e);
-      }
+    try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
+      System.out.println("[Charger日志][充电器]：检测到电源拔出");
+      HttpPost httpPost = new HttpPost("http://127.0.0.1:9090/charger/status");
+      httpPost.setEntity(new StringEntity("plugOut", StandardCharsets.UTF_8));
+      httpClient.execute(httpPost);
+      httpPost.clear();
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
