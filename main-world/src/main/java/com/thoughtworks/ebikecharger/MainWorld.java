@@ -6,10 +6,10 @@ import java.io.IOException;
 
 public class MainWorld {
 
-
-  public static void main(String[] args) throws InterruptedException, IOException {
+  public static void main(String[] args) throws IOException, InterruptedException {
     Server server = new Server();
-    new Thread(server).start();
+    server.init();
+    server.start();
     Charger charger = new Charger();
     new Thread(charger).start();
     charger.plugIn();
