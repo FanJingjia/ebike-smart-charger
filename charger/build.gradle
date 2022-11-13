@@ -12,6 +12,7 @@ repositories {
 dependencies {
     implementation project(":model")
     implementation 'com.alibaba:fastjson:2.0.17'
+    implementation 'org.apache.httpcomponents.client5:httpclient5:5.0'
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.8.1'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.8.1'
 }
