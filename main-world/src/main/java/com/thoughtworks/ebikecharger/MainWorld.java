@@ -8,8 +8,7 @@ public class MainWorld {
 
   public static void main(String[] args) throws IOException, InterruptedException {
     Server server = new Server();
-    server.init();
-    server.start();
+    new Thread(server).start();
     Charger charger = new Charger();
     new Thread(charger).start();
     charger.plugIn();
