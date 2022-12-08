@@ -4,12 +4,18 @@ import static com.thoughtworks.ebikecharger.Constants.GET_METHOD;
 import static com.thoughtworks.ebikecharger.Constants.HTTP_STATUS_OK;
 import static com.thoughtworks.ebikecharger.Constants.POST_METHOD;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sun.net.httpserver.HttpServer;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.InetSocketAddress;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
+import java.util.Map;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
@@ -33,11 +39,33 @@ public class Server {
     httpServer.start();
   }
 
+  private final ObjectMapper mapper = new ObjectMapper();
+
   public void init() {
+    httpServer.createContext("/charger/init", httpExchange -> {
+      InputStream requestBody = httpExchange.getRequestBody();
+      BufferedReader reader = new BufferedReader(new InputStreamReader(requestBody));
+      String requestBodyStr = reader.readLine();
+      Map<String, String> requestMap = mapper.readValue(requestBodyStr, new TypeReference<>() {
+      });
+      String id = requestMap.get("id");
+      String isPlugged = requestMap.get("isPlugged");
+      try {
+        initCharger(id + " " + isPlugged + "\n");
+      } catch (IOException e) {
+        System.out.println("写文件异常");
+        e.printStackTrace();
+      }
+      httpExchange.sendResponseHeaders(HTTP_STATUS_OK, "initCharger".length());
+      httpExchange.getResponseBody().write("initCharger".getBytes());
+    });
     httpServer.createContext("/charger/energyKnots", httpExchange -> {
       InputStream requestBody = httpExchange.getRequestBody();
       BufferedReader reader = new BufferedReader(new InputStreamReader(requestBody));
-      String energyKnots = reader.readLine();
+      String requestBodyStr = reader.readLine();
+      Map<String, String> requestMap = mapper.readValue(requestBodyStr, new TypeReference<>() {
+      });
+      String energyKnots = requestMap.get("energyKnots");
       receiveEnergyKnots(energyKnots);
       httpExchange.sendResponseHeaders(HTTP_STATUS_OK, "energyKnots".length());
       httpExchange.getResponseBody().write("energyKnots".getBytes());
@@ -45,8 +73,12 @@ public class Server {
     httpServer.createContext("/charger/status", httpExchange -> {
       InputStream requestBody = httpExchange.getRequestBody();
       BufferedReader reader = new BufferedReader(new InputStreamReader(requestBody));
-      String chargerStatus = reader.readLine();
-      receivePlugEvent(chargerStatus.equals("plugIn"));
+      String requestBodyStr = reader.readLine();
+      Map<String, String> requestMap = mapper.readValue(requestBodyStr, new TypeReference<>() {
+      });
+      boolean plugIn = Boolean.parseBoolean(requestMap.get("plugIn"));
+      String id = requestMap.get("id");
+      receivePlugEvent(id, plugIn);
 
       httpExchange.sendResponseHeaders(HTTP_STATUS_OK, "chargerStatus".length());
       httpExchange.getResponseBody().write("chargerStatus".getBytes());
@@ -74,11 +106,12 @@ public class Server {
     });
   }
 
-  public void receivePlugEvent(boolean plugIn) {
+  public void receivePlugEvent(String id, boolean plugIn) throws IOException {
     electricityReadWriteLock.writeLock().lock();
     electricityStatus = plugIn;
     electricityReadWriteLock.writeLock().unlock();
     electricityReadWriteLock.readLock().lock();
+    receivePlugEventAndWriteChargerFile(id, plugIn);
     if (electricityStatus) {
       System.out.println("[Server日志][电动车]：进入充电状态");
     } else {
@@ -120,5 +153,25 @@ public class Server {
     System.out.printf("已经上报%s\n", username);
     borrower = username;
     borrowerReadWriteLock.writeLock().unlock();
+  }
+
+  private void initCharger(String str) throws IOException {
+    Path path = Path.of("charger.txt");
+    Files.writeString(path, str, StandardOpenOption.APPEND);
+  }
+
+  private void receivePlugEventAndWriteChargerFile(String id, Boolean plugIn) throws IOException {
+    Path path = Path.of("charger.txt");
+    String[] chargerLines = Files.readString(path).split("\n");
+    Files.writeString(path, "");
+    for (String chargerLine : chargerLines) {
+      String chargerId = chargerLine.split(" ")[0];
+      if (id.equals(chargerId)) {
+        String line = chargerId + " " + plugIn + "\n";
+        Files.writeString(path, line, StandardOpenOption.APPEND);
+      } else {
+        Files.writeString(path, chargerLine + "\n", StandardOpenOption.APPEND);
+      }
+    }
   }
 }
