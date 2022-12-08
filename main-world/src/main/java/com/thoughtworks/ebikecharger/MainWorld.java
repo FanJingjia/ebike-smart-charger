@@ -8,11 +8,15 @@ public class MainWorld {
 
   public static void main(String[] args) throws IOException, InterruptedException {
     Server server = new Server();
-    server.start();
     server.init();
-    Charger charger = new Charger();
-    new Thread(charger).start();
-    charger.plugIn();
+    server.start();
+    Charger charger1 = new Charger("1");
+    Charger charger2 = new Charger("2");
+    Charger charger3 = new Charger("3");
+    new Thread(charger1).start();
+    charger1.plugIn();
+    new Thread(charger2).start();
+    new Thread(charger3).start();
     System.out.println("环境初始化完成，电动车开始充电");
     Thread.sleep(9 * HOUR_AS_MILLIS);
     System.out.println("9小时后，电动车完成充电");
@@ -21,7 +25,7 @@ public class MainWorld {
     MobileApp liu = new MobileApp("小刘");
     new Thread(() -> {
       System.out.println("小张骑走了电动车");
-      charger.plugOut();
+      charger1.plugOut();
       zhang.reportBorrower();
     }).start();
     new Thread(() -> {
