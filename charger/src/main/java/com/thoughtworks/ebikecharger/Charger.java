@@ -1,31 +1,56 @@
 package com.thoughtworks.ebikecharger;
 
-
 import static com.thoughtworks.ebikecharger.Constants.HOUR_AS_MILLIS;
 
-import com.alibaba.fastjson2.JSON;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.hc.client5.http.classic.methods.HttpPost;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.apache.hc.core5.http.ContentType;
 import org.apache.hc.core5.http.io.entity.StringEntity;
 
 public class Charger implements Runnable {
 
   private static final long FULL_CHARGE_TIME = 8; // as hours
 
-  // 插入电源的时间
+  private final ObjectMapper mapper = new ObjectMapper();
+
+  private String id;
+
+  //init a charger
+  public Charger(String id) {
+    this.id = id;
+    try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
+      HttpPost httpPost = new HttpPost("http://127.0.0.1:9999/charger/init");
+      Map<String, String> params = new HashMap<>();
+      params.put("id", getId());
+      params.put("isPlugged", String.valueOf(isPlugged.get()));
+      String paramsJson = mapper.writeValueAsString(params);
+      httpPost.setEntity(new StringEntity(paramsJson, ContentType.APPLICATION_JSON));
+      httpClient.execute(httpPost);
+      httpPost.clear();
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+  }
+
   private final AtomicLong pluggedInTime = new AtomicLong();
 
   private final AtomicBoolean isPlugged = new AtomicBoolean(false);
 
   private final Object lock = new Object();
+
+  public String getId() {
+    return id;
+  }
 
   public void plugIn() {
     synchronized (lock) {
@@ -47,17 +72,26 @@ public class Charger implements Runnable {
 
   @Override
   public void run() {
-    while(isPlugged.get()){
-      try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
-        HttpPost httpPost = new HttpPost("http://127.0.0.1:9999/charger/energyKnots");
-        List<Integer> energyKnots = generateEnergyKnots(System.currentTimeMillis(), pluggedInTime.get());
-        String energyKnotsJSON = JSON.toJSONString(energyKnots);
-        httpPost.setEntity(new StringEntity(energyKnotsJSON, StandardCharsets.UTF_8));
-        httpClient.execute(httpPost);
-        httpPost.clear();
-        Thread.sleep(HOUR_AS_MILLIS);
-      } catch (IOException | InterruptedException e) {
-        throw new RuntimeException(e);
+    for (; ; ) {
+      while (isPlugged()) {
+        try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
+          HttpPost httpPost = new HttpPost("http://127.0.0.1:9999/charger/energyKnots");
+          httpPost.setHeader("Content-Type", "application/json;charset=UTF-8");
+          List<Integer> energyKnots = generateEnergyKnots(System.currentTimeMillis(), pluggedInTime.get());
+          Map<String, String> params = new HashMap<>();
+          params.put("energyKnots", energyKnots.toString());
+          String paramsJson = mapper.writeValueAsString(params);
+          httpPost.setEntity(new StringEntity(paramsJson, ContentType.APPLICATION_JSON));
+          httpClient.execute(httpPost);
+          httpPost.clear();
+        } catch (IOException e) {
+          System.out.println("充电器" + getId() + "的httpClient传输充电曲线异常");
+        }
+        try {
+          Thread.sleep(HOUR_AS_MILLIS);
+        } catch (InterruptedException e) {
+          System.out.println("当前线程sleep出现异常");
+        }
       }
     }
   }
@@ -77,25 +111,35 @@ public class Charger implements Runnable {
 
   private void sendPlugInEvent() {
     try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
-      System.out.println("[Charger日志][充电器]：检测到电源插入");
+      System.out.println("[Charger日志][充电器" + getId() + "]：检测到电源插入");
       HttpPost httpPost = new HttpPost("http://127.0.0.1:9999/charger/status");
-      httpPost.setEntity(new StringEntity("plugIn", StandardCharsets.UTF_8));
+      Map<String, String> params = new HashMap<>();
+      params.put("id", getId());
+      params.put("plugIn", String.valueOf(isPlugged.get()));
+      String paramsJson = mapper.writeValueAsString(params);
+      httpPost.setEntity(new StringEntity(paramsJson));
       httpClient.execute(httpPost);
       httpPost.clear();
     } catch (IOException e) {
-      throw new RuntimeException(e);
+      System.out.println("充电器" + getId() + "的httpClient传输plugIn事件异常");
+      e.printStackTrace();
     }
   }
 
   private void sendPlugOutEvent() {
     try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
-      System.out.println("[Charger日志][充电器]：检测到电源拔出");
+      System.out.println("[Charger日志][充电器" + getId() + "]：检测到电源拔出");
       HttpPost httpPost = new HttpPost("http://127.0.0.1:9999/charger/status");
-      httpPost.setEntity(new StringEntity("plugOut", StandardCharsets.UTF_8));
+      Map<String, String> params = new HashMap<>();
+      params.put("id", getId());
+      params.put("plugIn", String.valueOf(isPlugged.get()));
+      String paramsJson = mapper.writeValueAsString(params);
+      httpPost.setEntity(new StringEntity(paramsJson));
       httpClient.execute(httpPost);
       httpPost.clear();
     } catch (IOException e) {
-      throw new RuntimeException(e);
+      System.out.println("充电器" + getId() + "的httpClient传输plugOut事件异常");
+      e.printStackTrace();
     }
   }
 
