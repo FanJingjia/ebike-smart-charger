@@ -112,14 +112,7 @@ public class Charger implements Runnable {
   private void sendPlugInEvent() {
     try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
       System.out.println("[Charger日志][充电器" + getId() + "]：检测到电源插入");
-      HttpPost httpPost = new HttpPost("http://127.0.0.1:9999/charger/status");
-      Map<String, String> params = new HashMap<>();
-      params.put("id", getId());
-      params.put("plugIn", String.valueOf(isPlugged.get()));
-      String paramsJson = mapper.writeValueAsString(params);
-      httpPost.setEntity(new StringEntity(paramsJson));
-      httpClient.execute(httpPost);
-      httpPost.clear();
+      sendHttpPostEvent(httpClient);
     } catch (IOException e) {
       System.out.println("充电器" + getId() + "的httpClient传输plugIn事件异常");
       e.printStackTrace();
@@ -129,14 +122,7 @@ public class Charger implements Runnable {
   private void sendPlugOutEvent() {
     try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
       System.out.println("[Charger日志][充电器" + getId() + "]：检测到电源拔出");
-      HttpPost httpPost = new HttpPost("http://127.0.0.1:9999/charger/status");
-      Map<String, String> params = new HashMap<>();
-      params.put("id", getId());
-      params.put("plugIn", String.valueOf(isPlugged.get()));
-      String paramsJson = mapper.writeValueAsString(params);
-      httpPost.setEntity(new StringEntity(paramsJson));
-      httpClient.execute(httpPost);
-      httpPost.clear();
+      sendHttpPostEvent(httpClient);
     } catch (IOException e) {
       System.out.println("充电器" + getId() + "的httpClient传输plugOut事件异常");
       e.printStackTrace();
@@ -147,4 +133,14 @@ public class Charger implements Runnable {
     return isPlugged.get();
   }
 
+  private void sendHttpPostEvent(CloseableHttpClient httpClient) throws IOException {
+    HttpPost httpPost = new HttpPost("http://127.0.0.1:9999/charger/status");
+    Map<String, String> params = new HashMap<>();
+    params.put("id", getId());
+    params.put("plugIn", String.valueOf(isPlugged.get()));
+    String paramsJson = mapper.writeValueAsString(params);
+    httpPost.setEntity(new StringEntity(paramsJson));
+    httpClient.execute(httpPost);
+    httpPost.clear();
+  }
 }
