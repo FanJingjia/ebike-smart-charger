@@ -12,7 +12,7 @@ import org.apache.hc.core5.http.io.entity.StringEntity;
 
 public class Bike {
 
-  private String id;
+  private final String id;
 
   // status分为闲置和使用
   private String status;
@@ -20,7 +20,7 @@ public class Bike {
   // 使用者名称=使用者名称/空字符串
   private String username;
 
-  private ObjectMapper mapper = new ObjectMapper();
+  private final ObjectMapper mapper = new ObjectMapper();
 
   public Bike(String id) {
     this.id = id;
@@ -41,6 +41,17 @@ public class Bike {
 
   public void plugIn() {
     setStatus("plugIn");
+    try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
+      HttpPost httpPost = new HttpPost("http://127.0.0.1:9999/bike/status");
+      Map<String, Bike> params = new HashMap<>();
+      params.put("bike", this);
+      String paramsJson = mapper.writeValueAsString(params);
+      httpPost.setEntity(new StringEntity(paramsJson, ContentType.APPLICATION_JSON));
+      httpClient.execute(httpPost);
+      httpPost.clear();
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
   }
 
   public void plugOut() {
