@@ -158,24 +158,28 @@ public class Server {
     electricityReadWriteLock.readLock().unlock();
   }
 
-  private String checkBikeStatus() {
-    StringBuilder bikeStatus = new StringBuilder();
-    electricityReadWriteLock.readLock().lock();
-    if (electricityStatus) {
-      bikeStatus.append("电动车正在充电");
-    } else {
-      bikeStatus.append("电动车未处于充电状态");
+  private String checkBikeStatus() throws IOException {
+    StringBuilder allBikeStatus = new StringBuilder();
+    Path path = Path.of(BIKE_FILE_NAME);
+    String bikeFileContent = Files.readString(path);
+    String[] bikeLines = bikeFileContent.split("\n");
+    for (String bikeLine : bikeLines) {
+      String bikeId = bikeLine.split(SPACE)[0];
+      String bikeStatus = bikeLine.split(SPACE)[1];
+      if (bikeStatus.equals("plugIn")){
+        allBikeStatus.append("自行车")
+            .append(bikeId)
+            .append("正在充电")
+            .append("\n");
+      }else {
+        String username = bikeLine.split(SPACE)[2];
+        allBikeStatus.append(username)
+            .append("正在使用自行车")
+            .append(bikeId)
+            .append("\n");
+      }
     }
-    electricityReadWriteLock.readLock().unlock();
-    bikeStatus.append(",");
-    borrowerReadWriteLock.readLock().lock();
-    if (borrower.length() == 0) {
-      bikeStatus.append("目前电动车处于闲置状态");
-    } else {
-      bikeStatus.append(String.format("目前%s正在使用电动车", borrower));
-    }
-    borrowerReadWriteLock.readLock().unlock();
-    return bikeStatus.toString();
+    return allBikeStatus.toString();
   }
 
   public void receiveBorrowerAndWriteBikeFile(String username, String bikeId) throws IOException {
