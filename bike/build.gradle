@@ -11,10 +11,8 @@ repositories {
 
 dependencies {
     implementation project(":model")
-    implementation project(":bike")
-    implementation project(':charger')
-    implementation project(':mobile-app')
-    implementation project(':server')
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.14.1'
+    implementation 'org.apache.httpcomponents.client5:httpclient5:5.0'
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.8.1'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.8.1'
 }

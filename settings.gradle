@@ -4,4 +4,5 @@ include 'charger'
 include 'server'
 include 'mobile-app'
 include 'main-world'
+include 'bike'
 
