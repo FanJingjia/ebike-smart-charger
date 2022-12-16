@@ -21,6 +21,8 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class Server {
 
+  static final String CHARGER_FILE_NAME = "charger.txt";
+  static final String BIKE_FILE_NAME = "bike.txt";
   private final HttpServer httpServer;
 
   private boolean electricityStatus = false;
@@ -42,6 +44,13 @@ public class Server {
   private final ObjectMapper mapper = new ObjectMapper();
 
   public void init() {
+    try {
+      initFile(CHARGER_FILE_NAME);
+      initFile(BIKE_FILE_NAME);
+    } catch (IOException e) {
+      System.out.println("初始化数据文件异常");
+      e.printStackTrace();
+    }
     httpServer.createContext("/charger/init", httpExchange -> {
       InputStream requestBody = httpExchange.getRequestBody();
       BufferedReader reader = new BufferedReader(new InputStreamReader(requestBody));
@@ -155,13 +164,8 @@ public class Server {
     borrowerReadWriteLock.writeLock().unlock();
   }
 
-  private void initCharger(String str) throws IOException {
-    Path path = Path.of("charger.txt");
-    Files.writeString(path, str, StandardOpenOption.APPEND);
-  }
-
   private void receivePlugEventAndWriteChargerFile(String id, Boolean plugIn) throws IOException {
-    Path path = Path.of("charger.txt");
+    Path path = Path.of(CHARGER_FILE_NAME);
     String[] chargerLines = Files.readString(path).split("\n");
     Files.writeString(path, "");
     for (String chargerLine : chargerLines) {
@@ -173,5 +177,15 @@ public class Server {
         Files.writeString(path, chargerLine + "\n", StandardOpenOption.APPEND);
       }
     }
+  }
+
+  private void initCharger(String str) throws IOException {
+    Path path = Path.of(CHARGER_FILE_NAME);
+    Files.writeString(path, str, StandardOpenOption.APPEND);
+  }
+
+  private void initFile(String filePath) throws IOException {
+    Path path = Path.of(filePath);
+    Files.writeString(path, "");
   }
 }
