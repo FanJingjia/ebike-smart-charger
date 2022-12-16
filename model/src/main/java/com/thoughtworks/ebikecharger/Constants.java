@@ -13,6 +13,8 @@ public final class Constants {
 
   public static final Integer PORT = 9999;
 
+  public static final String SPACE = " ";
+
   private Constants() {
     // empty
   }

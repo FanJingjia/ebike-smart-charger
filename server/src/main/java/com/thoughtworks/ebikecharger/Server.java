@@ -3,6 +3,7 @@ package com.thoughtworks.ebikecharger;
 import static com.thoughtworks.ebikecharger.Constants.GET_METHOD;
 import static com.thoughtworks.ebikecharger.Constants.HTTP_STATUS_OK;
 import static com.thoughtworks.ebikecharger.Constants.POST_METHOD;
+import static com.thoughtworks.ebikecharger.Constants.SPACE;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -60,7 +61,7 @@ public class Server {
       String id = requestMap.get("id");
       String isPlugged = requestMap.get("isPlugged");
       try {
-        initCharger(id + " " + isPlugged + "\n");
+        initCharger(id + SPACE + isPlugged + "\n");
       } catch (IOException e) {
         System.out.println("写文件异常");
         e.printStackTrace();
@@ -115,10 +116,14 @@ public class Server {
         //请求修改bike状态
         try (InputStream requestBody = httpExchange.getRequestBody()) {
           try (BufferedReader reader = new BufferedReader(new InputStreamReader(requestBody))) {
-            String username = reader.readLine();
-            receiveBorrower(username);
-            httpExchange.sendResponseHeaders(HTTP_STATUS_OK, "bikeStatus".length());
-            httpExchange.getResponseBody().write("bikeStatus".getBytes());
+            String requestBodyStr = reader.readLine();
+            Map<String, String> requestMap = mapper.readValue(requestBodyStr, new TypeReference<>() {
+            });
+            String username = requestMap.get("username");
+            String bikeId = requestMap.get("bikeId");
+            receiveBorrowerAndWriteBikeFile(username, bikeId);
+            httpExchange.sendResponseHeaders(HTTP_STATUS_OK, "reportBorrower".length());
+            httpExchange.getResponseBody().write("reportBorrower".getBytes());
             httpExchange.close();
           }
         }
@@ -173,11 +178,23 @@ public class Server {
     return bikeStatus.toString();
   }
 
-  public void receiveBorrower(String username) {
+  public void receiveBorrowerAndWriteBikeFile(String username, String bikeId) throws IOException {
     borrowerReadWriteLock.writeLock().lock();
-    System.out.printf("已经上报%s\n", username);
+    System.out.printf("%s已经骑走自行车%s\n", username, bikeId);
     borrower = username;
     borrowerReadWriteLock.writeLock().unlock();
+    Path path = Path.of(BIKE_FILE_NAME);
+    String[] bikeLines = Files.readString(path).split("\n");
+    Files.writeString(path, "");
+    for (String bikeLine : bikeLines) {
+      String tmpBikeId = bikeLine.split(SPACE)[0];
+      if (bikeId.equals(tmpBikeId)) {
+        String line = tmpBikeId + SPACE + "plugOut" + SPACE + username + "\n";
+        Files.writeString(path, line, StandardOpenOption.APPEND);
+      } else {
+        Files.writeString(path, bikeLine + "\n", StandardOpenOption.APPEND);
+      }
+    }
   }
 
   private void receivePlugEventAndWriteChargerFile(String id, Boolean plugIn) throws IOException {
@@ -185,9 +202,9 @@ public class Server {
     String[] chargerLines = Files.readString(path).split("\n");
     Files.writeString(path, "");
     for (String chargerLine : chargerLines) {
-      String chargerId = chargerLine.split(" ")[0];
+      String chargerId = chargerLine.split(SPACE)[0];
       if (id.equals(chargerId)) {
-        String line = chargerId + " " + plugIn + "\n";
+        String line = chargerId + SPACE + plugIn + "\n";
         Files.writeString(path, line, StandardOpenOption.APPEND);
       } else {
         Files.writeString(path, chargerLine + "\n", StandardOpenOption.APPEND);
@@ -204,9 +221,9 @@ public class Server {
     Path path = Path.of(BIKE_FILE_NAME);
     StringBuilder stringBuilder = new StringBuilder();
     stringBuilder.append(bike.getId())
-        .append(" ")
+        .append(SPACE)
         .append(bike.getStatus())
-        .append(" ")
+        .append(SPACE)
         .append(bike.getUsername());
     Files.writeString(path, stringBuilder.toString(), StandardOpenOption.APPEND);
   }
