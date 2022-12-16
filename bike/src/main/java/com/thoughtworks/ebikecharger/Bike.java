@@ -24,7 +24,7 @@ public class Bike {
 
   public Bike(String id) {
     this.id = id;
-    this.status = "plugIn";
+    this.status = "plugOut";
     this.username = "";
     try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
       HttpPost httpPost = new HttpPost("http://127.0.0.1:9999/bike/init");
@@ -49,6 +49,14 @@ public class Bike {
 
   public String getId() {
     return id;
+  }
+
+  public String getStatus() {
+    return status;
+  }
+
+  public String getUsername() {
+    return username;
   }
 
   public void setStatus(String status) {

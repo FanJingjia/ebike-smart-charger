@@ -68,6 +68,22 @@ public class Server {
       httpExchange.sendResponseHeaders(HTTP_STATUS_OK, "initCharger".length());
       httpExchange.getResponseBody().write("initCharger".getBytes());
     });
+    httpServer.createContext("/bike/init", httpExchange -> {
+      InputStream requestBody = httpExchange.getRequestBody();
+      BufferedReader reader = new BufferedReader(new InputStreamReader(requestBody));
+      String requestBodyStr = reader.readLine();
+      Map<String, Bike> requestMap = mapper.readValue(requestBodyStr, new TypeReference<>() {
+      });
+      Bike bike = requestMap.get("bike");
+      try {
+        initBike(bike);
+      } catch (IOException e) {
+        System.out.println("写文件异常");
+        e.printStackTrace();
+      }
+      httpExchange.sendResponseHeaders(HTTP_STATUS_OK, "initBike".length());
+      httpExchange.getResponseBody().write("initBike".getBytes());
+    });
     httpServer.createContext("/charger/energyKnots", httpExchange -> {
       InputStream requestBody = httpExchange.getRequestBody();
       BufferedReader reader = new BufferedReader(new InputStreamReader(requestBody));
@@ -182,6 +198,17 @@ public class Server {
   private void initCharger(String str) throws IOException {
     Path path = Path.of(CHARGER_FILE_NAME);
     Files.writeString(path, str, StandardOpenOption.APPEND);
+  }
+
+  private void initBike(Bike bike) throws IOException {
+    Path path = Path.of(BIKE_FILE_NAME);
+    StringBuilder stringBuilder = new StringBuilder();
+    stringBuilder.append(bike.getId())
+        .append(" ")
+        .append(bike.getStatus())
+        .append(" ")
+        .append(bike.getUsername());
+    Files.writeString(path, stringBuilder.toString(), StandardOpenOption.APPEND);
   }
 
   private void initFile(String filePath) throws IOException {
