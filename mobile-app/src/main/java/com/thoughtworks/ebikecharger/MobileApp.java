@@ -61,12 +61,12 @@ public class MobileApp {
   public void reportBorrower(String bikeId) {
     synchronized (MobileApp.class) {
       try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
-        HttpPost httpPost = new HttpPost("http://127.0.0.1:9999/bike/status");
+        HttpPost httpPost = new HttpPost("http://127.0.0.1:9999/bike/plugOut");
         Map<String, String> params = new HashMap<>();
         params.put("username", username);
         params.put("bikeId", bikeId);
         String paramsJson = mapper.writeValueAsString(params);
-        httpPost.setEntity(new StringEntity(paramsJson));
+        httpPost.setEntity(new StringEntity(paramsJson, StandardCharsets.UTF_8));
         httpClient.execute(httpPost);
         httpPost.clear();
       } catch (IOException e) {

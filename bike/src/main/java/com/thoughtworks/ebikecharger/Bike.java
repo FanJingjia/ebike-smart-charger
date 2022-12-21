@@ -28,8 +28,10 @@ public class Bike {
     this.username = "";
     try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
       HttpPost httpPost = new HttpPost("http://127.0.0.1:9999/bike/init");
-      Map<String, Bike> params = new HashMap<>();
-      params.put("bike", this);
+      Map<String, String> params = new HashMap<>();
+      params.put("id", id);
+      params.put("status", status);
+      params.put("username", username);
       String paramsJson = mapper.writeValueAsString(params);
       httpPost.setEntity(new StringEntity(paramsJson, ContentType.APPLICATION_JSON));
       httpClient.execute(httpPost);
@@ -42,9 +44,9 @@ public class Bike {
   public void plugIn() {
     setStatus("plugIn");
     try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
-      HttpPost httpPost = new HttpPost("http://127.0.0.1:9999/bike/status");
-      Map<String, Bike> params = new HashMap<>();
-      params.put("bike", this);
+      HttpPost httpPost = new HttpPost("http://127.0.0.1:9999/bike/plugIn");
+      Map<String, String> params = new HashMap<>();
+      params.put("id", getId());
       String paramsJson = mapper.writeValueAsString(params);
       httpPost.setEntity(new StringEntity(paramsJson, ContentType.APPLICATION_JSON));
       httpClient.execute(httpPost);
