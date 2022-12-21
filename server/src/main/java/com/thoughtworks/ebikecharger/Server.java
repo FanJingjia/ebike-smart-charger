@@ -1,8 +1,6 @@
 package com.thoughtworks.ebikecharger;
 
-import static com.thoughtworks.ebikecharger.Constants.GET_METHOD;
 import static com.thoughtworks.ebikecharger.Constants.HTTP_STATUS_OK;
-import static com.thoughtworks.ebikecharger.Constants.POST_METHOD;
 import static com.thoughtworks.ebikecharger.Constants.SPACE;
 
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -73,11 +71,13 @@ public class Server {
       InputStream requestBody = httpExchange.getRequestBody();
       BufferedReader reader = new BufferedReader(new InputStreamReader(requestBody));
       String requestBodyStr = reader.readLine();
-      Map<String, Bike> requestMap = mapper.readValue(requestBodyStr, new TypeReference<>() {
+      Map<String, String> requestMap = mapper.readValue(requestBodyStr, new TypeReference<>() {
       });
-      Bike bike = requestMap.get("bike");
+      String id = requestMap.get("id");
+      String status = requestMap.get("status");
+      String username = requestMap.get("username");
       try {
-        initBike(bike);
+        initBike(id,status,username);
       } catch (IOException e) {
         System.out.println("写文件异常");
         e.printStackTrace();
@@ -110,28 +110,36 @@ public class Server {
       httpExchange.getResponseBody().write("chargerStatus".getBytes());
     });
 
-    httpServer.createContext("/bike/status", httpExchange -> {
-      String requestMethod = httpExchange.getRequestMethod();
-      if (POST_METHOD.equals(requestMethod)) {
-        //请求修改bike状态
-        try (InputStream requestBody = httpExchange.getRequestBody()) {
-          try (BufferedReader reader = new BufferedReader(new InputStreamReader(requestBody))) {
-            String requestBodyStr = reader.readLine();
-            Map<String, String> requestMap = mapper.readValue(requestBodyStr, new TypeReference<>() {
-            });
-            String username = requestMap.get("username");
-            String bikeId = requestMap.get("bikeId");
-            receiveBorrowerAndWriteBikeFile(username, bikeId);
-            httpExchange.sendResponseHeaders(HTTP_STATUS_OK, "reportBorrower".length());
-            httpExchange.getResponseBody().write("reportBorrower".getBytes());
-            httpExchange.close();
-          }
+    httpServer.createContext("/bike/plugOut", httpExchange -> {
+      try (InputStream requestBody = httpExchange.getRequestBody()) {
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(requestBody))) {
+          String requestBodyStr = reader.readLine();
+          Map<String, String> requestMap = mapper.readValue(requestBodyStr, new TypeReference<>() {
+          });
+          String username = requestMap.get("username");
+          String bikeId = requestMap.get("bikeId");
+          receiveBorrowerAndWriteBikeFile(username, bikeId);
+          httpExchange.sendResponseHeaders(HTTP_STATUS_OK, "reportBorrower".length());
+          httpExchange.getResponseBody().write("reportBorrower".getBytes());
         }
-      } else if (GET_METHOD.equals(requestMethod)) {
-        //请求获取bike状态
-        String bikeStatus = checkBikeStatus();
-        httpExchange.sendResponseHeaders(HTTP_STATUS_OK, bikeStatus.getBytes().length);
-        httpExchange.getResponseBody().write(bikeStatus.getBytes());
+      }
+    });
+    httpServer.createContext("/bike/status", httpExchange -> {
+      String bikeStatus = checkBikeStatus();
+      httpExchange.sendResponseHeaders(HTTP_STATUS_OK, bikeStatus.getBytes().length);
+      httpExchange.getResponseBody().write(bikeStatus.getBytes());
+    });
+    httpServer.createContext("/bike/plugIn", httpExchange -> {
+      try (InputStream requestBody = httpExchange.getRequestBody()) {
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(requestBody))) {
+          String requestBodyStr = reader.readLine();
+          Map<String, String> requestMap = mapper.readValue(requestBodyStr, new TypeReference<>() {
+          });
+          String id = requestMap.get("id");
+          receiveBikePlugInEvent(id);
+          httpExchange.sendResponseHeaders(HTTP_STATUS_OK, "reportBorrower".length());
+          httpExchange.getResponseBody().write("reportBorrower".getBytes());
+        }
       }
     });
   }
@@ -166,12 +174,12 @@ public class Server {
     for (String bikeLine : bikeLines) {
       String bikeId = bikeLine.split(SPACE)[0];
       String bikeStatus = bikeLine.split(SPACE)[1];
-      if (bikeStatus.equals("plugIn")){
+      if (bikeStatus.equals("plugIn")) {
         allBikeStatus.append("自行车")
             .append(bikeId)
             .append("正在充电")
             .append("\n");
-      }else {
+      } else {
         String username = bikeLine.split(SPACE)[2];
         allBikeStatus.append(username)
             .append("正在使用自行车")
@@ -216,19 +224,34 @@ public class Server {
     }
   }
 
+  private void receiveBikePlugInEvent(String bikeId) throws IOException {
+    Path path = Path.of(BIKE_FILE_NAME);
+    String[] bikeLines = Files.readString(path).split("\n");
+    Files.writeString(path, "");
+    for (String bikeLine : bikeLines) {
+      String tmpBikeId = bikeLine.split(SPACE)[0];
+      if (bikeId.equals(tmpBikeId)) {
+        String line = tmpBikeId + SPACE + "plugIn" + "\n";
+        Files.writeString(path, line, StandardOpenOption.APPEND);
+      } else {
+        Files.writeString(path, bikeLine + "\n", StandardOpenOption.APPEND);
+      }
+    }
+  }
+
   private void initCharger(String str) throws IOException {
     Path path = Path.of(CHARGER_FILE_NAME);
     Files.writeString(path, str, StandardOpenOption.APPEND);
   }
 
-  private void initBike(Bike bike) throws IOException {
+  private void initBike(String id,String status,String username) throws IOException {
     Path path = Path.of(BIKE_FILE_NAME);
     StringBuilder stringBuilder = new StringBuilder();
-    stringBuilder.append(bike.getId())
+    stringBuilder.append(id)
         .append(SPACE)
-        .append(bike.getStatus())
+        .append(status)
         .append(SPACE)
-        .append(bike.getUsername());
+        .append(username);
     Files.writeString(path, stringBuilder.toString(), StandardOpenOption.APPEND);
   }
 
